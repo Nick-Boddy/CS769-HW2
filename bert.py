@@ -42,12 +42,20 @@ class BertSelfAttention(nn.Module):
     # before normalizing the scores, use the attention mask to mask out the padding token scores
     # Note again: in the attention_mask non-padding tokens with 0 and padding tokens with a large negative number 
 
-    # normalize the scores
-
+    # compute the scores
+    scores = (query @ key.T) / math.sqrt(query.size(-1))
+    # apply masking
+    scores = scores + attention_mask
+    # normalize the scores using softmax
+    scores = F.softmax(scores, dim=-1)
     # multiply the attention scores to the value and get back V' 
-
+    weights = torch.matmul(scores, value) # [bs, num_attention_heads, seq_len, attention_head_size]
     # next, we need to concat multi-heads and recover the original shape [bs, seq_len, num_attention_heads * attention_head_size = hidden_size]
-    raise NotImplementedError
+    weights = torch.transpose(weights, 1, 2) # [bs, seq_len, num_attention_heads, attention_head_size]
+    weights = weights.contiguous()
+    orig_shape = (*weights.shape[:-2], self.all_head_size)
+    weights = weights.view(orig_shape)
+    return weights
 
   def forward(self, hidden_states, attention_mask):
     """
