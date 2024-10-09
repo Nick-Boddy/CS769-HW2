@@ -2,6 +2,7 @@ import time, random, numpy as np, argparse, sys, re, os
 from types import SimpleNamespace
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from sklearn.metrics import classification_report, f1_score, recall_score, accuracy_score
@@ -37,13 +38,16 @@ class BertSentClassifier(torch.nn.Module):
             elif config.option == 'finetune':
                 param.requires_grad = True
 
-        # todo
-        raise NotImplementedError
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.out = nn.Linear(config.hidden_size, self.num_labels)
 
     def forward(self, input_ids, attention_mask):
-        # todo
         # the final bert contextualize embedding is the hidden state of [CLS] token (the first token)
-        raise NotImplementedError
+        bert_output = self.bert(input_ids, attention_mask)
+        pool_output = bert_output['pooler_output']
+        dropped_pool_output = self.dropout(pool_output)
+        final_output = self.out(dropped_pool_output)
+        return final_output
 
 # create a custom Dataset Class to be used for the dataloader
 class BertDataset(Dataset):

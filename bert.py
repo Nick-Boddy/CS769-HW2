@@ -43,7 +43,7 @@ class BertSelfAttention(nn.Module):
     # Note again: in the attention_mask non-padding tokens with 0 and padding tokens with a large negative number 
 
     # compute the scores
-    scores = (query @ key.T) / math.sqrt(query.size(-1))
+    scores = (query @ torch.transpose(key, -2, -1)) / math.sqrt(query.size(-1))
     # apply masking
     scores = scores + attention_mask
     # normalize the scores using softmax
@@ -122,7 +122,7 @@ class BertLayer(nn.Module):
     # feed forward
     ff_output = self.interm_af(self.interm_dense(normalized_attn_output))
     # another add-norm layer
-    normalized_ff_output = self.add_norm(attn_output,
+    normalized_ff_output = self.add_norm(normalized_attn_output,
                                          ff_output,
                                          self.out_dense,
                                          self.out_dropout,
@@ -143,7 +143,9 @@ class BertModel(BertPreTrainedModel):
     self.config = config
 
     # embedding
-    self.word_embedding = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
+    #   PADDING_IDX set to None fixes sanity check. Might want to update to pytorch 1.13.0 instead?
+    #   was set to config.pad_token_id
+    self.word_embedding = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=None)
     self.pos_embedding = nn.Embedding(config.max_position_embeddings, config.hidden_size)
     self.tk_type_embedding = nn.Embedding(config.type_vocab_size, config.hidden_size)
     self.embed_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
@@ -166,13 +168,11 @@ class BertModel(BertPreTrainedModel):
     seq_length = input_shape[1]
 
     # get word embedding from self.word_embedding
-    # todo
-    inputs_embeds = None
-
+    inputs_embeds = self.word_embedding(input_ids)
 
     # get position index and position embedding from self.pos_embedding
     pos_ids = self.position_ids[:, :seq_length]
-    pos_embeds = None
+    pos_embeds = self.pos_embedding(pos_ids)
 
     # get token type ids, since we are not consider token type, just a placeholder
     tk_type_ids = torch.zeros(input_shape, dtype=torch.long, device=input_ids.device)
@@ -185,7 +185,7 @@ class BertModel(BertPreTrainedModel):
     embeds = self.embed_layer_norm(embeds)
     embeds = self.embed_dropout(embeds)
 
-    raise NotImplementedError
+    return embeds
 
   def encode(self, hidden_states, attention_mask):
     """
