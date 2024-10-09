@@ -54,7 +54,7 @@ class BertSelfAttention(nn.Module):
     weights = torch.transpose(weights, 1, 2) # [bs, seq_len, num_attention_heads, attention_head_size]
     weights = weights.contiguous()
     orig_shape = (*weights.shape[:-2], self.all_head_size)
-    weights = weights.view(orig_shape)
+    weights = weights.view(orig_shape) # [bs, seq_len, hidden_size]
     return weights
 
   def forward(self, hidden_states, attention_mask):
@@ -97,8 +97,9 @@ class BertLayer(nn.Module):
     ln_layer: layer norm that takes input+sublayer(output) 
     This function computes ``LayerNorm(input + Sublayer(output))``, where sublayer is a dense_layer followed by dropout.
     """
-    # todo
-    raise NotImplementedError
+    sub_output = dropout(dense_layer(output))
+    norm_output = ln_layer(input + sub_output)
+    return norm_output
 
   def forward(self, hidden_states, attention_mask):
     """
@@ -110,17 +111,23 @@ class BertLayer(nn.Module):
     3. a feed forward layer
     4. a add-norm that takes the output of feed forward layer and the input of feed forward layer
     """
-    # todo
     # multi-head attention w/ self.self_attention
-
+    attn_output = self.self_attention(hidden_states, attention_mask)
     # add-norm layer
-
+    normalized_attn_output = self.add_norm(hidden_states,
+                                           attn_output,
+                                           self.attention_dense,
+                                           self.attention_dropout,
+                                           self.attention_layer_norm)
     # feed forward
-
+    ff_output = self.interm_af(self.interm_dense(normalized_attn_output))
     # another add-norm layer
-
-
-    raise NotImplementedError
+    normalized_ff_output = self.add_norm(attn_output,
+                                         ff_output,
+                                         self.out_dense,
+                                         self.out_dropout,
+                                         self.out_layer_norm)
+    return normalized_ff_output
 
 
 class BertModel(BertPreTrainedModel):
