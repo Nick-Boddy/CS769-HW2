@@ -55,6 +55,7 @@ class AdamW(Optimizer):
                     state["m"] = torch.zeros_like(p.data) # 1st moment
                     state["v"] = torch.zeros_like(p.data) # 2nd moment
 
+                state["t"] += 1
                 t = state["t"]
                 m_t = state["m"]
                 v_t = state["v"]
@@ -67,18 +68,13 @@ class AdamW(Optimizer):
                 # Bias correction
                 # Please note that we are using the "efficient version" given in
                 # https://arxiv.org/abs/1412.6980
-                alpha_t = alpha * torch.sqrt(1 - beta2**t) / (1 - beta1**t)
+                if group["correct_bias"]:
+                    alpha_t = alpha * torch.sqrt(1 - beta2**t) / (1 - beta1**t)
+                else:
+                    alpha_t = alpha
 
                 # Update parameters
-
                 # Add weight decay after the main gradient-based updates.
                 # Please note that the learning rate should be incorporated into this update.
-                p.data -= (alpha_t * m_t / (torch.sqrt(v_t) + epsilon) + weight_decay * p.data)
-
-                state["t"] = t
-                state["m"] = m_t
-                state["v"] = v_t
-
-                
-
+                p.data -= alpha_t * (m_t / (torch.sqrt(v_t) + epsilon) + weight_decay * p.data)
         return loss
