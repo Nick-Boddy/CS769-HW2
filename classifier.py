@@ -40,14 +40,17 @@ class BertSentClassifier(torch.nn.Module):
 
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.out = nn.Linear(config.hidden_size, self.num_labels)
+        # self.softmax = nn.Softmax(-1)
 
     def forward(self, input_ids, attention_mask):
         # the final bert contextualize embedding is the hidden state of [CLS] token (the first token)
         bert_output = self.bert(input_ids, attention_mask)
         pool_output = bert_output['pooler_output']
         dropped_pool_output = self.dropout(pool_output)
-        final_output = self.out(dropped_pool_output)
-        return final_output
+        logits = self.out(dropped_pool_output)
+        # probs = self.softmax(logits)
+        # return probs
+        return logits
 
 # create a custom Dataset Class to be used for the dataloader
 class BertDataset(Dataset):
@@ -207,7 +210,7 @@ def train(args):
 
             optimizer.zero_grad()
             logits = model(b_ids, b_mask)
-            loss = F.nll_loss(logits, b_labels.view(-1), reduction='sum') / args.batch_size
+            loss = F.nll_loss(F.log_softmax(logits, dim=-1), b_labels.view(-1), reduction='sum') / args.batch_size
 
             loss.backward()
             optimizer.step()

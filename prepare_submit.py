@@ -67,7 +67,7 @@ def main(path: str, aid: str):
                 if '.git' in root or '__pycache__' in root:
                     continue  # ignore some parts
                 for file in files:
-                    if any(file.endswith(s) for s in ['.pdf', '.txt', '.sh', '.py', '.npy']):
+                    if any(file.endswith(s) for s in ['.py', '.sh', '.md', '.txt', '.data']):
                         ff = os.path.join(root, file)
                         rpath = os.path.relpath(ff, path)
                         zz.write(ff, os.path.join(".", aid, rpath))
